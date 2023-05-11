@@ -1,0 +1,329 @@
+.data
+	numString:		.space 4
+	reverse:		.space 4
+	msg0:			.asciiz "\nSelect a menu option to make a conversion.\n"
+	msg1:			.asciiz "1. Binary to hexadecimal and decimal\n"
+	msg2:			.asciiz "2. Hexadecimal to binary and decimal\n"
+	msg3:			.asciiz "3. Decimal to binary and hexadecimal\n"
+	msg4:			.asciiz "4. Exit\n"
+	input:			.asciiz "Enter the number to be converted: "
+	redoB:			.asciiz "This number is not valid for this conversion, try again. 0-1 only\n"
+	redoD:			.asciiz "This number is not valid for this conversion, try again. 0-9 only\n"
+	redoH:			.asciiz "This number is not valid for this conversion, try again. 0-9, A-F only\n"
+	redoM:			.asciiz "This is not a valid selection, try again. 1-4 only\n"
+	bin:			.asciiz "Binary number: ["
+	dec:			.asciiz "Decimal number: ["
+	hex:			.asciiz "Hexadecimal number: ["
+	close:			.asciiz "]\n"
+	newline:		.word '\n'
+.text
+	main:			la $a0, numString
+				la $a2, reverse
+				jal showMenu			
+				li $v0, 10
+				syscall			
+			
+	# Displays the Menu
+	showMenu:		addi $sp, $sp, -4
+				sw $ra, ($sp)	
+		menuLoop:	li $v0, 4
+				la $a0, msg0
+				syscall
+				li $v0, 4
+				la $a0, msg1
+				syscall
+				li $v0, 4
+				la $a0, msg2
+				syscall
+				li $v0, 4
+				la $a0, msg3
+				syscall
+				li $v0, 4
+				la $a0, msg4
+				syscall
+				li $v0, 5
+				syscall
+				la $t3, ($v0)
+				beq $t3, 1, opt1
+				beq $t3, 2, opt2
+				beq $t3, 3, opt3
+				beq $t3, 4, opt4
+				li $v0, 4
+				la $a0, redoM
+				syscall
+				j menuLoop
+		opt1:		jal option1
+				j menuLoop
+		opt2:		jal option2
+				j menuLoop
+		opt3:		jal option3
+				j menuLoop
+		opt4:		lw $ra, ($sp)
+				addi $sp, $sp, 4
+				jr $ra
+			
+	option1:		addi $sp, $sp, -4
+				sw $ra, ($sp)
+		binaryLoop:		li $v0, 4
+				la $a0, input
+				syscall
+				li $v0, 8		
+				la $a0, numString
+				li $a1, 32
+				syscall	
+				jal valB
+				beq $v0, 0, notB
+				jal parseBin
+				la $s0, ($v0)	
+				jal prtBin
+				lw $ra, ($sp)
+				addi $sp, $sp, 4
+				jr $ra
+		notB:		li $v0, 4
+				la $a0, redoB
+				syscall
+				j binaryLoop
+				
+	option2:		addi $sp, $sp, -4
+				sw $ra, ($sp)
+		hexadecimalLp:	li $v0, 4
+				la $a0, input
+				syscall
+				li $v0, 8		
+				la $a0, numString
+				li $a1, 32
+				syscall	
+				jal valH
+				beq $v0, 0, notH
+				jal parseHex
+				la $s0, ($v0)	
+				jal prtHex
+				lw $ra, ($sp)
+				addi $sp, $sp, 4
+				jr $ra
+		notH:		li $v0, 4
+				la $a0, redoH
+				syscall
+				j hexadecimalLp
+				
+	option3:		addi $sp, $sp, -4
+				sw $ra, ($sp)
+		decimalLoop:	li $v0, 4
+				la $a0, input
+				syscall
+				li $v0, 8		
+				la $a0, numString
+				li $a1, 32
+				syscall	
+				jal valD
+				beq $v0, 0, notD
+				jal parseDec
+				la $s0, ($v0)	
+				jal prtDec
+				lw $ra, ($sp)
+				addi $sp, $sp, 4
+				jr $ra
+		notD:		li $v0, 4
+				la $a0, redoD
+				syscall
+				j decimalLoop
+			
+	# Take in a Decimal String and return a Decimal number
+	parseDec:		la $s0, ($a0)		# input String
+				li $v0, 0		# result
+				li $t0, 0		# char holder
+		decLoop:	lb $t0, ($s0)
+				beq $t0, 10, decEnd
+				sub $t0, $t0, 48
+				mul $v0, $v0, 10
+				add $v0, $v0, $t0
+				addi $s0, $s0, 1
+				j decLoop
+		decEnd:		jr $ra
+		
+	# Take in a Hexadecimal and return a Decimal Number
+	parseHex:		la $s0, ($a0)		# input String
+				li $v0, 0 		# result
+				li $t0, 0		# char holder
+		hexLoop:	lb $t0, ($s0)
+				beq $t0, 10, hexEnd
+				bgt $t0, '9', hexLetter
+				sub $t0, $t0, 48
+				j hexReturn
+		hexLetter:	sub $t0, $t0, 55
+		hexReturn:	mul $v0, $v0, 16
+				add $v0, $v0, $t0
+				addi $s0, $s0, 1
+				j hexLoop
+		hexEnd:		jr $ra
+		
+	# Take in a Binary String and return a Decimal number
+	parseBin:		addi $sp, $sp, -4
+				sw $ra, ($sp)
+				jal countString
+				la $t2, ($v0)	 	# String length
+				la $s0, ($a0)		# input String
+				li $v0, 0		# result
+				li $t0, 0		# char holder
+				li $t1, 1		# bit value
+				add $s0, $s0, $t2
+				lb $t0, ($s0)
+				sub $t0, $t0, 48
+				add $v0, $v0, $t0
+				sub $s0, $s0, 1
+				sub $t2, $t2, 1
+		binLoop:		lb $t0, ($s0)		
+				beq $t2, 0, binEnd
+				sub $t0, $t0, 48
+				mul $t1, $t1, 2
+				mul $t0, $t0, $t1
+				add $v0, $v0, $t0
+				sub $s0, $s0, 1
+				sub $t2, $t2, 1
+				j binLoop
+		binEnd:		lw $ra, ($sp)
+				addi $sp, $sp, 4
+				jr $ra
+				
+	# Count the length of a String
+	countString:		la $s0, ($a0)		# input String
+				li $t0, 0		# char holder
+				li $v0, -1		# count 
+		countLoop:	lb $t0, ($s0)
+				beq $t0, 10, countEnd
+				addi $v0, $v0, 1
+				addi $s0, $s0, 1
+				j countLoop
+		countEnd:	jr $ra
+			
+	# Validates a Binary String		
+	valB:			li $v0, 1		#boolean
+				la $s0, ($a0)
+		loopB:		lb $s1, ($s0)
+				beq $s1, 10, lpBend
+				blt $s1, '0', noB
+				bgt $s1, '1', noB
+				addi $s0, $s0, 1
+				j loopB
+		noB:		li $v0, 0
+				jr $ra
+		lpBend:		jr $ra
+		
+	# Validates a Decimal String		
+	valD:			li $v0, 1		#boolean
+				la $s0, ($a0)
+		loopD:		lb $s1, ($s0)
+				beq $s1, 10, lpDend
+				blt $s1, '0', noD
+				bgt $s1, '9', noD
+				addi $s0, $s0, 1
+				j loopD
+		noD:		li $v0, 0
+				jr $ra
+		lpDend:		jr $ra
+		
+	# Validates a Hexadecimal String		
+	valH:			li $v0, 1		#boolean
+				la $s0, ($a0)
+		loopH:		lb $s1, ($s0)
+				beq $s1, 10, lpHend
+				blt $s1, '0', noH
+				bgt $s1, 'F', noH
+				blt $s1, 'A', check
+		return:		addi $s0, $s0, 1
+				j loopH
+		check:		bgt $s1, '9', noH
+				j return
+		noH:		li $v0, 0
+				jr $ra
+		lpHend:		jr $ra
+		
+	# Prints the Decimal Result
+	prtDec:			li $v0, 4
+				la $a0, dec
+				syscall
+				li $v0, 1
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, bin
+				syscall
+				li $v0, 35
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, hex
+				syscall
+				li $v0, 34
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				jr $ra
+			
+	# Prints the Binary Result
+	prtBin:			li $v0, 4
+				la $a0, bin
+				syscall
+				li $v0, 35
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, dec
+				syscall
+				li $v0, 1
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, hex
+				syscall
+				li $v0, 34
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				jr $ra		
+
+	# Prints the Hexadecimal Result
+	prtHex:			li $v0, 4
+				la $a0, hex
+				syscall
+				li $v0, 34
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, dec
+				syscall
+				li $v0, 1
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				li $v0, 4
+				la $a0, bin
+				syscall
+				li $v0, 35
+				la $a0, ($s0)
+				syscall
+				li $v0, 4
+				la $a0, close
+				syscall
+				jr $ra
